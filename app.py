@@ -8,9 +8,8 @@ camera_url = os.environ.get('CAMERA_URL')
 
 app = Flask(__name__)
 
-camera = cv2.VideoCapture(camera_url)  # use 0 for web camera
-
 def gen_frames():  # generate frame by frame from camera
+    camera = cv2.VideoCapture(camera_url)  # use 0 for web camera
     while True:
         # Capture frame-by-frame
         success, frame = camera.read()  # read the camera frame
@@ -28,12 +27,15 @@ def video_feed():
     #Video streaming route. Put this in the src attribute of an img tag
     return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
+#@app.route('/')
+#def index():
+#    """Video streaming home page."""
+#    return render_template('index.html')
 
 @app.route('/')
 def index():
-    """Video streaming home page."""
-    return render_template('index.html')
-
+    #Video streaming route. Put this in the src attribute of an img tag
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000,debug=False)

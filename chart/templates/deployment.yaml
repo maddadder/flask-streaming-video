@@ -40,11 +40,11 @@ spec:
             - name: http
               containerPort: 5000
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-            initialDelaySeconds: 20
+          #livenessProbe:
+          #  httpGet:
+          #    path: /
+          #    port: http
+          #  initialDelaySeconds: 20
           #readinessProbe:
           #  httpGet:
           #    path: /
