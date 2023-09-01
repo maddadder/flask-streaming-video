@@ -15,6 +15,12 @@
 <div class="container">
     <div class="row">
         <div class="col-lg-8  offset-lg-2">
+            <!-- Add login and logout links -->
+            {% if session['azure_token'] %}
+                <a href="/logout" class="btn btn-danger mt-3">Logout</a>
+            {% else %}
+                <a href="/login" class="btn btn-primary mt-3">Login</a>
+            {% endif %}
             <h3 class="mt-5">Live Streaming</h3>
             <img src="{{ url_for('video_feed') }}" width="100%">
         </div>

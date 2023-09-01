@@ -1,3 +1,5 @@
 Flask
+flask-oauthlib
+azure-identity
 python-dotenv
 opencv-python
