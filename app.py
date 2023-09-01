@@ -17,6 +17,8 @@ camera_url = os.environ.get('CAMERA_URL')
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+app.frame_count = 0
+app.frame_skip_interval =10
 
 # OAuth configuration
 oauth = OAuth(app)
@@ -33,6 +35,7 @@ azure = oauth.remote_app(
 )
 
 def gen_frames():  # generate frame by frame from camera
+
     camera = cv2.VideoCapture(camera_url)  # use 0 for web camera
     while True:
         # Capture frame-by-frame
@@ -40,6 +43,12 @@ def gen_frames():  # generate frame by frame from camera
         if not success:
             break
         else:
+            app.frame_count += 1
+            #Process every frame_skip_interval frame
+            if app.frame_count % app.frame_skip_interval != 0:
+                camera.grab()
+                continue
+
             ret, buffer = cv2.imencode('.jpg', frame)
             frame = buffer.tobytes()
             yield (b'--frame\r\n'
