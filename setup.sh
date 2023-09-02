@@ -9,7 +9,7 @@ python app.py
 
 # To Deploy:
 docker-compose build
-docker push 192.168.1.151:32000/flask-streaming-video:1.0.154
+docker push 192.168.1.151:32000/flask-streaming-video:1.0.163
 helm upgrade flask-streaming-video ./chart
 
 # To access

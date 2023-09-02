@@ -2,7 +2,7 @@ version: '2'
 
 services:
     flask-streaming-video:
-        image: 192.168.1.151:32000/flask-streaming-video:1.0.154
+        image: 192.168.1.151:32000/flask-streaming-video:1.0.163
         build:
             context: .
             dockerfile: ./Dockerfile

@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css"
           integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
 
-    <title>Live Streaming Demonstration</title>
+    <title>Live Streaming</title>
 </head>
 <body>
 <div class="container">
@@ -22,6 +22,20 @@
                 <a href="/login" class="btn btn-primary mt-3">Login</a>
             {% endif %}
             <h3 class="mt-5">Live Streaming</h3>
+            <!-- Add a dropdown menu for selecting cameras -->
+            <form method="post">
+                <div class="form-group">
+                    <label for="selected_camera_name">Select a Camera:</label>
+                    <select class="form-control" id="selected_camera_name" name="selected_camera_name">
+                        {% for camera_name in available_cameras %}
+                            <option value="{{ camera_name }}" {% if camera_name == selected_camera_name %}selected{% endif %}>
+                                {{ camera_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
             <img src="{{ url_for('video_feed') }}" width="100%">
         </div>
     </div>

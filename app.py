@@ -1,4 +1,4 @@
-from flask import Flask, render_template, Response, redirect, url_for, session
+from flask import Flask, render_template, request, Response, redirect, url_for, session
 from flask_oauthlib.client import OAuth
 from azure.identity import DefaultAzureCredential
 
@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 from functools import wraps
 import logging
+import json
 
 load_dotenv('.env')
 
@@ -27,7 +28,7 @@ AZURE_TENANT_ID = os.environ.get('AZURE_TENANT_ID')
 REDIRECT_URI = os.environ.get('REDIRECT_URI')
 BASE_URI = os.environ.get('BASE_URI')
 AUTH_USERS = os.environ.get('AUTH_USERS')
-camera_url = os.environ.get('CAMERA_URL')
+CAMERAS = json.loads(os.environ.get('CAMERAS'))
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -48,8 +49,7 @@ azure = oauth.remote_app(
     authorize_url='https://login.microsoftonline.com/{}/oauth2/authorize'.format(AZURE_TENANT_ID),
 )
 
-def gen_frames():  # generate frame by frame from camera
-
+def gen_frames(camera_url):  # generate frame by frame from camera
     camera = cv2.VideoCapture(camera_url)  # use 0 for web camera
     while True:
         # Capture frame-by-frame
@@ -84,12 +84,24 @@ def require_user(allowed_users):
 @app.route('/video_feed')
 @require_user(AUTH_USERS)
 def video_feed():
-    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    selected_camera = session.get('selected_camera', CAMERAS[0])
 
-@app.route('/')
+    camera_url = 'rtsp://{}:{}@{}:554/cam/realmonitor?channel={}&subtype=0'.format(selected_camera['username'], selected_camera['password'], selected_camera['ip'], selected_camera['channel'])
+
+    return Response(gen_frames(camera_url), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/', methods=['GET', 'POST'])
 def index():
-    """Video streaming home page."""
-    return render_template('index.html')
+    selected_camera_name = session.get('selected_camera', CAMERAS[0]['name'])  # Default to the first camera name
+
+    if request.method == 'POST':
+        selected_camera_name = request.form.get('selected_camera_name')
+        # Look up the URL based on the selected camera name
+        selected_camera = next((camera for camera in CAMERAS if camera['name'] == selected_camera_name), None)
+        if selected_camera:
+            session['selected_camera'] = selected_camera
+    available_cameras = [camera['name'] for camera in CAMERAS]
+    return render_template('index.html', available_cameras=available_cameras, selected_camera_name=selected_camera_name)
 
 @app.route('/login')
 def login():
