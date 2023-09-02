@@ -1,18 +1,32 @@
 from flask import Flask, render_template, Response, redirect, url_for, session
 from flask_oauthlib.client import OAuth
 from azure.identity import DefaultAzureCredential
+
 import cv2
 import os
 from dotenv import load_dotenv
+from functools import wraps
+import logging
 
 load_dotenv('.env')
 
-# Azure AD configuration
-CLIENT_ID = os.environ.get('CLIENT_ID')
-CLIENT_SECRET = os.environ.get('CLIENT_SECRET')
-TENANT_ID = os.environ.get('TENANT_ID')
-REDIRECT_URI = os.environ.get('REDIRECT_URI')
+# Configure the logging settings
+logging.basicConfig(
+    level=logging.INFO,  # Set the desired logging level (e.g., INFO)
+    format='%(asctime)s [%(levelname)s] - %(message)s',
+    handlers=[
+        logging.StreamHandler()  # Output logs to the console
+        # Add more handlers here (e.g., logging.FileHandler('logfile.log')) to log to a file
+    ]
+)
 
+# Azure AD configuration
+AZURE_CLIENT_ID = os.environ.get('AZURE_CLIENT_ID')
+AZURE_CLIENT_SECRET = os.environ.get('AZURE_CLIENT_SECRET')
+AZURE_TENANT_ID = os.environ.get('AZURE_TENANT_ID')
+REDIRECT_URI = os.environ.get('REDIRECT_URI')
+BASE_URI = os.environ.get('BASE_URI')
+AUTH_USERS = os.environ.get('AUTH_USERS')
 camera_url = os.environ.get('CAMERA_URL')
 
 app = Flask(__name__)
@@ -24,14 +38,14 @@ app.frame_skip_interval =10
 oauth = OAuth(app)
 azure = oauth.remote_app(
     'azure',
-    consumer_key=CLIENT_ID,
-    consumer_secret=CLIENT_SECRET,
-    request_token_params={'scope': 'openid email profile'},
+    consumer_key=AZURE_CLIENT_ID,
+    consumer_secret=AZURE_CLIENT_SECRET,
+    request_token_params={'scope': 'https://graph.microsoft.com/.default', 'resource': 'https://graph.microsoft.com/'},
     base_url='https://graph.microsoft.com/v1.0/',
     request_token_url=None,
     access_token_method='POST',
-    access_token_url='https://login.microsoftonline.com/{}/oauth2/token'.format(TENANT_ID),
-    authorize_url='https://login.microsoftonline.com/{}/oauth2/authorize'.format(TENANT_ID),
+    access_token_url='https://login.microsoftonline.com/{}/oauth2/token'.format(AZURE_TENANT_ID),
+    authorize_url='https://login.microsoftonline.com/{}/oauth2/authorize'.format(AZURE_TENANT_ID),
 )
 
 def gen_frames():  # generate frame by frame from camera
@@ -54,12 +68,23 @@ def gen_frames():  # generate frame by frame from camera
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')  # concat frame one by one and show result
 
+# Define a custom authorization decorator
+def require_user(allowed_users):
+    def decorator(view_function):
+        @wraps(view_function)
+        def wrapper(*args, **kwargs):
+            if 'azure_token' in session:
+                if session['userPrincipalName'] in allowed_users:
+                    return view_function(*args, **kwargs)
+            # If not authorized, redirect to the login page or perform other actions
+            return redirect(url_for('login'))
+        return wrapper
+    return decorator
 
 @app.route('/video_feed')
+@require_user(AUTH_USERS)
 def video_feed():
-    if 'azure_token' in session:
-        #Video streaming route. Put this in the src attribute of an img tag
-        return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(gen_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 @app.route('/')
 def index():
@@ -72,8 +97,17 @@ def login():
 
 @app.route('/logout')
 def logout():
+    # Optional: Revoke the access token (requires additional setup)
+    # ...
+
+    # Clear the user's session
     session.pop('azure_token', None)
-    return 'Logged out. <a href="/">Home</a>'
+    session.pop('userPrincipalName', None)
+    
+    # Redirect to Azure AD logout
+    logout_url = 'https://login.microsoftonline.com/{tenant_id}/oauth2/logout?post_logout_redirect_uri={redirect_uri}'
+    return redirect(logout_url.format(tenant_id=AZURE_TENANT_ID, redirect_uri=BASE_URI))
+
 
 @app.route('/login/authorized')
 def authorized():
@@ -84,7 +118,8 @@ def authorized():
             request.args['error_description']
         )
     session['azure_token'] = (resp['access_token'], '')
-    # user_info = azure.get('me')
+    user_info = azure.get('me')
+    session['userPrincipalName'] = user_info.data['userPrincipalName']
     # Redirect to the home page after setting the session
     return redirect(url_for('index'))
 
